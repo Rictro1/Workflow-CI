@@ -1,4 +1,3 @@
-
 import os
 import json
 import joblib
@@ -12,12 +11,9 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 
 DATA_PATH = "winequality_preprocessing.csv"
-EXPERIMENT_NAME = "Wine Quality CI Training"
 
 
 def main():
-    mlflow.set_experiment(EXPERIMENT_NAME)
-
     df = pd.read_csv(DATA_PATH)
 
     X = df.drop(columns=["quality_label"])
@@ -41,44 +37,48 @@ def main():
     }
 
     model = RandomForestClassifier(**params)
+    model.fit(X_train, y_train)
 
-    with mlflow.start_run(run_name="CI_RandomForest_Model"):
-        model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1]
 
-        y_pred = model.predict(X_test)
-        y_proba = model.predict_proba(X_test)[:, 1]
+    metrics = {
+        "accuracy": accuracy_score(y_test, y_pred),
+        "precision": precision_score(y_test, y_pred, zero_division=0),
+        "recall": recall_score(y_test, y_pred, zero_division=0),
+        "f1_score": f1_score(y_test, y_pred, zero_division=0),
+        "roc_auc": roc_auc_score(y_test, y_proba)
+    }
 
-        metrics = {
-            "accuracy": accuracy_score(y_test, y_pred),
-            "precision": precision_score(y_test, y_pred, zero_division=0),
-            "recall": recall_score(y_test, y_pred, zero_division=0),
-            "f1_score": f1_score(y_test, y_pred, zero_division=0),
-            "roc_auc": roc_auc_score(y_test, y_proba)
-        }
+    mlflow.log_params(params)
+    mlflow.log_metrics(metrics)
 
-        mlflow.log_params(params)
-        mlflow.log_metrics(metrics)
+    os.makedirs("artifacts", exist_ok=True)
 
-        os.makedirs("artifacts", exist_ok=True)
+    model_path = "artifacts/ci_random_forest_model.pkl"
+    metrics_path = "artifacts/ci_metrics.json"
 
-        model_path = "artifacts/ci_random_forest_model.pkl"
-        metrics_path = "artifacts/ci_metrics.json"
+    joblib.dump(model, model_path)
 
-        joblib.dump(model, model_path)
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f, indent=4)
 
-        with open(metrics_path, "w") as f:
-            json.dump(metrics, f, indent=4)
+    mlflow.log_artifact(model_path)
+    mlflow.log_artifact(metrics_path)
 
-        mlflow.log_artifact(model_path)
-        mlflow.log_artifact(metrics_path)
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        artifact_path="model"
+    )
 
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="model"
-        )
+    mlflow.sklearn.save_model(
+        sk_model=model,
+        path="model"
+    )
 
-        print("CI training selesai.")
-        print(metrics)
+    print("CI training selesai.")
+    print(metrics)
+    print("Model berhasil disimpan ke folder model.")
 
 
 if __name__ == "__main__":
