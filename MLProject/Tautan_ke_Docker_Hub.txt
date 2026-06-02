@@ -1,0 +1,11 @@
+Docker Hub Image:
+https://hub.docker.com/r/triccom/wine-quality-model
+
+Image Tag:
+latest
+
+Docker Pull Command:
+docker pull triccom/wine-quality-model:latest
+
+Keterangan:
+Docker image ini dibuat melalui GitHub Actions menggunakan perintah mlflow models build-docker dan berhasil dipush ke Docker Hub.
